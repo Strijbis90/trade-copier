@@ -1,6 +1,7 @@
 const { TradovateClient } = require('./tradovate');
 const { describeRoute } = require('./proxy');
 const { desiredNet, orderDelta } = require('./qty');
+const { assertClusterEligible, evaluateChallenge, normalizeChallenge } = require('./challenge');
 
 class Copier {
   constructor({ store, io, log }) {
@@ -77,6 +78,42 @@ class Copier {
     return rows;
   }
 
+  async checkChallenge(account) {
+    const rules = normalizeChallenge(account.challenge);
+    if (rules.startBalance == null || rules.profitTarget == null || rules.maxDrawdown == null) {
+      throw new Error('Sla eerst startbalans, winstdoel en max drawdown op.');
+    }
+    const running = [...this.runs.values()].some((run) => run.accountIds.has(account.id));
+    if (running) {
+      const error = new Error('Dit account draait in een cluster. Stop het cluster om de stand op te halen.');
+      error.status = 409;
+      throw error;
+    }
+    const client = new TradovateClient(account);
+    try {
+      const facts = await client.readChallengeFacts();
+      const result = evaluateChallenge(rules, facts);
+      const lastCheck = {
+        at: new Date().toISOString(),
+        balance: facts.balance,
+        dayPnl: facts.dayPnl,
+        tradingDays: facts.tradingDays,
+        accountName: facts.accountName,
+        ...result
+      };
+      return {
+        challenge: {
+          ...rules,
+          peakBalance: result.peak,
+          lastCheck
+        },
+        route: client.route
+      };
+    } finally {
+      await client.close();
+    }
+  }
+
   async testAccount(account) {
     const started = Date.now();
     const client = new TradovateClient(account);
@@ -113,6 +150,7 @@ class Copier {
     });
 
     const members = [masterAccount, ...slaves.map((slave) => slave.account)];
+    assertClusterEligible(members);
     const envs = new Set(members.map((account) => account.environment));
     if (envs.size > 1) {
       throw new Error('Demo en live accounts in hetzelfde cluster zijn geblokkeerd.');

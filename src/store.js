@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { describeRoute } = require('./proxy');
+const { emptyChallenge, normalizeChallenge } = require('./challenge');
 
 function readJson(file, fallback) {
   try {
@@ -81,6 +82,7 @@ class Store {
       useProxy: input.useProxy,
       tradovateAccountId: input.tradovateAccountId,
       tradovateAccountName: input.tradovateAccountName,
+      challenge: emptyChallenge(),
       deviceId: crypto.randomUUID(),
       createdAt: now,
       updatedAt: now
@@ -103,6 +105,23 @@ class Store {
           createdAt: row.createdAt,
           updatedAt: new Date().toISOString()
         };
+        return updated;
+      });
+      if (!updated) {
+        const error = new Error('Account niet gevonden.');
+        error.status = 404;
+        throw error;
+      }
+      return next;
+    }).then(() => updated);
+  }
+
+  updateChallenge(id, challenge) {
+    let updated = null;
+    return this.mutateAccounts((rows) => {
+      const next = rows.map((row) => {
+        if (row.id !== id) return row;
+        updated = { ...row, challenge, updatedAt: new Date().toISOString() };
         return updated;
       });
       if (!updated) {
@@ -185,6 +204,7 @@ function publicAccount(account, status) {
     passwordSet: Boolean(account.password),
     tradovateAccountId: account.tradovateAccountId || null,
     tradovateAccountName: account.tradovateAccountName || '',
+    challenge: normalizeChallenge(account.challenge),
     createdAt: account.createdAt,
     updatedAt: account.updatedAt,
     status: {

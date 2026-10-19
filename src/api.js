@@ -1,4 +1,5 @@
 const { publicAccount } = require('./store');
+const { assertClusterEligible, parseChallengeRules, applyDecision } = require('./challenge');
 const { assertProxyUrl, normalizeProxyUrl, describeRoute } = require('./proxy');
 
 function sendError(res, err) {
@@ -75,6 +76,7 @@ function parseCluster(body, store) {
   if (!Number.isInteger(maxOrderQty) || maxOrderQty < 1 || maxOrderQty > 500) {
     throw new Error('Max ordergrootte moet een geheel getal van 1 tot 500 zijn.');
   }
+  assertClusterEligible([master, ...slaves.map((slave) => store.account(slave.accountId))]);
   return {
     name,
     masterId,
@@ -187,6 +189,51 @@ function createApi({ store, copier, logger }) {
       }
       const result = await copier.testAccount(account);
       res.json(result);
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
+  router.put('/accounts/:id/challenge', async (req, res) => {
+    try {
+      const account = store.account(req.params.id);
+      if (!account) {
+        res.status(404).json({ error: 'Account niet gevonden.' });
+        return;
+      }
+      const challenge = parseChallengeRules(req.body || {}, account.challenge);
+      const row = await store.updateChallenge(account.id, challenge);
+      res.json(publicAccount(row, copier.accountStatus.get(row.id)));
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
+  router.post('/accounts/:id/challenge/check', async (req, res) => {
+    try {
+      const account = store.account(req.params.id);
+      if (!account) {
+        res.status(404).json({ error: 'Account niet gevonden.' });
+        return;
+      }
+      const result = await copier.checkChallenge(account);
+      const row = await store.updateChallenge(account.id, result.challenge);
+      res.json(publicAccount(row, copier.accountStatus.get(row.id)));
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
+  router.post('/accounts/:id/challenge/decision', async (req, res) => {
+    try {
+      const account = store.account(req.params.id);
+      if (!account) {
+        res.status(404).json({ error: 'Account niet gevonden.' });
+        return;
+      }
+      const challenge = applyDecision(account.challenge, req.body?.phase);
+      const row = await store.updateChallenge(account.id, challenge);
+      res.json(publicAccount(row, copier.accountStatus.get(row.id)));
     } catch (err) {
       sendError(res, err);
     }
