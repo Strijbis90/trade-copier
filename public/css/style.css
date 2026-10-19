@@ -573,13 +573,29 @@ input:focus, select:focus { border-color: var(--accent); }
 .toast.error { border-left-color: var(--sell); }
 .toast.warn { border-left-color: var(--warn); }
 
+.tag.gehaald { color: var(--buy); border-color: rgba(31, 206, 139, 0.45); background: rgba(31, 206, 139, 0.08); }
+.tag.evaluatie { color: var(--warn); border-color: rgba(245, 185, 66, 0.45); background: rgba(245, 185, 66, 0.08); }
+.tag.gezakt { color: var(--sell); border-color: rgba(255, 93, 108, 0.45); background: rgba(255, 93, 108, 0.08); }
+.tag.advise { color: var(--info); border-color: rgba(108, 182, 255, 0.4); }
+
+.entity.selected { border-color: rgba(61, 220, 151, 0.55); }
+.pick.blocked { border-color: rgba(245, 185, 66, 0.45); }
+
+.meter { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.meter-top { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+.bar { display: flex; height: 8px; background: #1c2631; border-radius: 99px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); width: 0; }
+.bar.warn > span { background: var(--warn); }
+.bar.bad > span { background: var(--sell); }
+.challenge-result { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #2c3b4b; border-radius: 99px; }
 
 @media (max-width: 980px) {
   .shell { flex-direction: column; height: auto; min-height: 100%; }
   .sidebar { width: auto; flex-basis: auto; border-right: 0; border-bottom: 1px solid var(--line); }
-  .nav { flex-direction: row; }
+  .nav { flex-direction: row; flex-wrap: wrap; }
   .side-foot { margin-top: 14px; }
   .workspace { min-height: calc(100vh - 180px); }
   .monitor-grid, .split, .proxy-row { flex-direction: column; }

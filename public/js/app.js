@@ -1,5 +1,6 @@
 const state = {
   view: 'monitor',
+  challengeId: null,
   accounts: [],
   clusters: [],
   logs: [],
@@ -10,8 +11,12 @@ const state = {
 const titles = {
   monitor: ['Realtime', 'Live Monitor'],
   accounts: ['Credentials', 'Accounts'],
+  challenges: ['Jij beslist', 'Challenges'],
   clusters: ['Master / slaves', 'Cluster builder']
 };
+
+const phaseLabel = { evaluatie: 'Evaluatie', gehaald: 'Gehaald', gezakt: 'Gezakt' };
+const suggestionLabel = { bezig: 'Nog bezig', lijkt_gehaald: 'Lijkt gehaald', lijkt_gezakt: 'Lijkt gezakt' };
 
 const socket = io();
 
@@ -206,6 +211,7 @@ function renderAccounts() {
           <span class="tag ${account.environment === 'live' ? 'live' : 'demo'}">${esc(account.environment)}</span>
         </div>
         <p class="faint">${esc(account.username)}${account.tradovateAccountName ? ` · ${esc(account.tradovateAccountName)}` : ''}</p>
+        <p><span class="tag ${esc(account.challenge?.phase || 'evaluatie')}">${esc(phaseLabel[account.challenge?.phase] || 'Evaluatie')}</span></p>
         <p><span class="dot ${dotClass(status.connection)}"></span> ${esc(status.routeLabel || (account.useProxy ? 'Proxy' : 'Direct'))}${status.message ? ` · ${esc(status.message)}` : ''}</p>
         <div class="card-actions">
           <button type="button" class="btn sm" data-action="edit-account" data-id="${esc(account.id)}">Bewerk</button>
@@ -249,12 +255,95 @@ function renderClusters() {
   }).join('');
 }
 
+function challengeOf(account) {
+  return account?.challenge || { phase: 'evaluatie', lastCheck: null };
+}
+
+function moneyText(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  return Number(value).toLocaleString('nl-NL', { style: 'currency', currency: 'USD' });
+}
+
+function renderChallengeList() {
+  const host = document.getElementById('challenge-list');
+  document.getElementById('challenge-count').textContent = String(state.accounts.length);
+  if (!state.accounts.length) {
+    host.innerHTML = '<p class="empty">Voeg eerst een account toe.</p>';
+    return;
+  }
+  host.innerHTML = state.accounts.map((account) => {
+    const challenge = challengeOf(account);
+    const advice = challenge.lastCheck?.suggestion;
+    return `
+      <article class="entity ${state.challengeId === account.id ? 'selected' : ''}">
+        <div class="entity-top">
+          <strong>${esc(account.name)}</strong>
+          <span class="tag ${esc(challenge.phase)}">${esc(phaseLabel[challenge.phase] || 'Evaluatie')}</span>
+        </div>
+        <p class="faint">${esc(account.environment)} · ${esc(account.username)}</p>
+        <p class="faint">${advice ? `Advies: ${esc(suggestionLabel[advice] || advice)}` : 'Nog geen stand opgehaald'}</p>
+        <div class="card-actions">
+          <button type="button" class="btn sm" data-action="open-challenge" data-id="${esc(account.id)}">Open</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function fillChallengeForm(account) {
+  state.challengeId = account.id;
+  const challenge = challengeOf(account);
+  document.getElementById('challenge-title').textContent = account.name;
+  document.getElementById('challenge-empty').hidden = true;
+  document.getElementById('challenge-fields').hidden = false;
+  document.getElementById('ch-start').value = challenge.startBalance ?? '';
+  document.getElementById('ch-target').value = challenge.profitTarget ?? '';
+  document.getElementById('ch-dd').value = challenge.maxDrawdown ?? '';
+  document.getElementById('ch-mode').value = challenge.drawdownMode || 'static';
+  document.getElementById('ch-daily').value = challenge.dailyLossLimit ?? '';
+  document.getElementById('ch-days').value = challenge.minDays ?? '';
+  renderChallengeResult(challenge);
+  renderChallengeList();
+}
+
+function renderChallengeResult(challenge) {
+  const host = document.getElementById('challenge-result');
+  const check = challenge.lastCheck;
+  if (!check) {
+    host.innerHTML = '<p class="hint">Nog geen stand. Sla de regels op en haal daarna het saldo op bij Tradovate.</p>';
+    return;
+  }
+  const target = Number(challenge.profitTarget) || 0;
+  const ddMax = Number(challenge.maxDrawdown) || 0;
+  const profitWidth = target > 0 ? Math.max(0, Math.min(100, (check.pnl / target) * 100)) : 0;
+  const ddWidth = ddMax > 0 ? Math.max(0, Math.min(100, (check.drawdownUsed / ddMax) * 100)) : 0;
+  const notes = (check.notes || []).map((note) => `<p class="hint">${esc(note)}</p>`).join('');
+  host.innerHTML = `
+    <div class="challenge-result">
+      <p><span class="tag ${esc(challenge.phase)}">${esc(phaseLabel[challenge.phase])}</span>
+         <span class="tag advise">${esc(suggestionLabel[check.suggestion] || check.suggestion)}</span></p>
+      <p class="faint">Saldo ${esc(moneyText(check.balance))} · resultaat ${esc(moneyText(check.pnl))} · ${esc(formatTime(check.at))}</p>
+      <div class="meter">
+        <div class="meter-top"><span>Winstdoel</span><span>${esc(moneyText(check.pnl))} / ${esc(moneyText(target))}</span></div>
+        <div class="bar"><span style="width:${profitWidth}%"></span></div>
+      </div>
+      <div class="meter">
+        <div class="meter-top"><span>Drawdown</span><span>${esc(moneyText(check.drawdownUsed))} / ${esc(moneyText(ddMax))}</span></div>
+        <div class="bar ${check.ddBreached ? 'bad' : ddWidth > 70 ? 'warn' : ''}"><span style="width:${ddWidth}%"></span></div>
+      </div>
+      ${check.tradingDays == null ? '' : `<p class="faint">Tradedagen: ${esc(check.tradingDays)}</p>`}
+      ${notes}
+    </div>
+  `;
+}
+
 function renderAll() {
   renderStats();
   renderPositions();
   renderLogs();
   renderClusterStrip();
   renderAccounts();
+  renderChallengeList();
   renderClusters();
 }
 
@@ -291,10 +380,14 @@ function syncPickerLocks() {
   document.querySelectorAll('[data-slave]').forEach((row) => {
     const box = row.querySelector('input[type="checkbox"]');
     const multiplier = row.querySelector('input[type="number"]');
+    const radio = row.querySelector('input[type="radio"]');
+    const eligible = row.dataset.eligible === '1';
     const locked = row.dataset.slave === masterId;
     if (locked) box.checked = false;
-    box.disabled = locked;
-    multiplier.disabled = locked || !box.checked;
+    if (!eligible && !box.checked) box.disabled = true;
+    else box.disabled = locked;
+    if (!eligible && !radio.checked) radio.disabled = true;
+    multiplier.disabled = locked || !box.checked || (!eligible && !box.checked);
   });
 }
 
@@ -309,12 +402,15 @@ function renderPicker(seed) {
   host.innerHTML = state.accounts.map((account) => {
     const checked = multipliers.has(account.id);
     const multiplier = multipliers.get(account.id) ?? 1;
+    const eligible = challengeOf(account).phase === 'gehaald';
+    const isMaster = picked.masterId === account.id;
+    const keep = !eligible && (isMaster || checked);
     return `
-      <div class="pick" data-slave="${esc(account.id)}">
-        <label class="pick-col"><input type="radio" name="master" value="${esc(account.id)}" ${picked.masterId === account.id ? 'checked' : ''}></label>
-        <label class="pick-col"><input type="checkbox" ${checked ? 'checked' : ''}></label>
-        <span class="who"><b>${esc(account.name)}</b><small>${esc(account.environment)} · ${esc(account.username)}</small></span>
-        <input type="number" min="0.1" max="100" step="0.1" value="${esc(multiplier)}" aria-label="Multiplier voor ${esc(account.name)}">
+      <div class="pick ${eligible ? '' : 'blocked'}" data-slave="${esc(account.id)}" data-eligible="${eligible ? '1' : '0'}">
+        <label class="pick-col"><input type="radio" name="master" value="${esc(account.id)}" ${isMaster ? 'checked' : ''} ${eligible || isMaster ? '' : 'disabled'}></label>
+        <label class="pick-col"><input type="checkbox" ${checked ? 'checked' : ''} ${eligible || checked ? '' : 'disabled'}></label>
+        <span class="who"><b>${esc(account.name)}</b><small>${esc(phaseLabel[challengeOf(account).phase])} · ${esc(account.environment)}${keep ? ' · vink uit' : ''}</small></span>
+        <input type="number" min="0.1" max="100" step="0.1" value="${esc(multiplier)}" aria-label="Multiplier voor ${esc(account.name)}" ${eligible || checked ? '' : 'disabled'}>
       </div>
     `;
   }).join('');
@@ -503,8 +599,99 @@ async function toggleCluster(id, action) {
   }
 }
 
+function challengePayload() {
+  return {
+    startBalance: document.getElementById('ch-start').value,
+    profitTarget: document.getElementById('ch-target').value,
+    maxDrawdown: document.getElementById('ch-dd').value,
+    drawdownMode: document.getElementById('ch-mode').value,
+    dailyLossLimit: document.getElementById('ch-daily').value,
+    minDays: document.getElementById('ch-days').value
+  };
+}
+
+async function refreshOpenChallenge() {
+  await reload();
+  const account = accountById(state.challengeId);
+  if (account) fillChallengeForm(account);
+}
+
+async function saveChallengeRules(event) {
+  event.preventDefault();
+  if (!state.challengeId) return;
+  const button = document.getElementById('challenge-save');
+  button.disabled = true;
+  try {
+    await api(`/api/accounts/${state.challengeId}/challenge`, { method: 'PUT', body: challengePayload() });
+    toast('Challengeregels opgeslagen. Je status is niet veranderd.');
+    await refreshOpenChallenge();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function checkChallenge() {
+  if (!state.challengeId) return;
+  const button = document.getElementById('challenge-check');
+  button.disabled = true;
+  try {
+    await api(`/api/accounts/${state.challengeId}/challenge`, { method: 'PUT', body: challengePayload() });
+    await api(`/api/accounts/${state.challengeId}/challenge/check`, { method: 'POST' });
+    toast('Stand opgehaald. Het advies wijzigt je beslissing niet.');
+    await refreshOpenChallenge();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function decideChallenge(phase) {
+  if (!state.challengeId) return;
+  const account = accountById(state.challengeId);
+  const suggestion = account?.challenge?.lastCheck?.suggestion;
+  if (phase === 'gehaald') {
+    const warning = suggestion === 'lijkt_gezakt'
+      ? 'De berekening ziet een overtreding. Jij kunt dit account toch als gehaald markeren. Daarna mag het in een cluster.'
+      : 'Daarna mag dit account in een cluster, ook als het advies nog op bezig staat.';
+    const ok = await ask({
+      title: 'Als gehaald markeren',
+      body: warning,
+      confirm: 'Markeer als gehaald'
+    });
+    if (!ok) return;
+  }
+  if (phase === 'gezakt') {
+    const ok = await ask({
+      title: 'Als gezakt markeren',
+      body: 'Dit account kan dan niet in een cluster, tot je het zelf terugzet naar evaluatie of gehaald.',
+      confirm: 'Markeer als gezakt',
+      danger: true
+    });
+    if (!ok) return;
+  }
+  try {
+    await api(`/api/accounts/${state.challengeId}/challenge/decision`, { method: 'POST', body: { phase } });
+    toast(phase === 'evaluatie' ? 'Terug naar evaluatie.' : 'Jouw beslissing is opgeslagen.');
+    await refreshOpenChallenge();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function refreshPickerIfIdle() {
+  const host = document.getElementById('picker');
+  if (!host || host.contains(document.activeElement)) return;
+  if (document.getElementById('cluster-id').value) return;
+  const picker = readPicker();
+  renderPicker(picker.masterId || picker.slaves.length ? picker : null);
+}
+
 async function reload() {
   applySnapshot(await api('/api/state'));
+  refreshPickerIfIdle();
 }
 
 document.querySelectorAll('.nav-btn').forEach((button) => {
@@ -515,6 +702,11 @@ document.getElementById('account-form').addEventListener('submit', saveAccount);
 document.getElementById('account-test').addEventListener('click', testAccount);
 document.getElementById('account-reset').addEventListener('click', resetAccountForm);
 document.getElementById('cluster-form').addEventListener('submit', saveCluster);
+document.getElementById('challenge-form').addEventListener('submit', saveChallengeRules);
+document.getElementById('challenge-check').addEventListener('click', checkChallenge);
+document.getElementById('challenge-pass').addEventListener('click', () => decideChallenge('gehaald'));
+document.getElementById('challenge-fail').addEventListener('click', () => decideChallenge('gezakt'));
+document.getElementById('challenge-reset').addEventListener('click', () => decideChallenge('evaluatie'));
 document.getElementById('cluster-reset').addEventListener('click', resetClusterForm);
 document.getElementById('picker').addEventListener('change', syncPickerLocks);
 document.getElementById('clear-logs').addEventListener('click', async () => {
@@ -534,6 +726,14 @@ document.body.addEventListener('click', async (event) => {
   const { action, id } = button.dataset;
   if (action === 'start' || action === 'stop') {
     toggleCluster(id, action);
+    return;
+  }
+  if (action === 'open-challenge') {
+    const account = accountById(id);
+    if (account) {
+      fillChallengeForm(account);
+      setView('challenges');
+    }
     return;
   }
   if (action === 'edit-account') {

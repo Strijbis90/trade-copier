@@ -27,8 +27,11 @@
         <button type="button" class="nav-btn" data-view="accounts">
           <span class="nav-kicker">02</span> Accounts
         </button>
+        <button type="button" class="nav-btn" data-view="challenges">
+          <span class="nav-kicker">03</span> Challenges
+        </button>
         <button type="button" class="nav-btn" data-view="clusters">
-          <span class="nav-kicker">03</span> Clusters
+          <span class="nav-kicker">04</span> Clusters
         </button>
       </nav>
       <div class="side-foot">
@@ -160,6 +163,62 @@
         </div>
       </div>
 
+      <div id="view-challenges" class="view" hidden>
+        <div class="split">
+          <section class="panel editor">
+            <div class="panel-head">
+              <h2 id="challenge-title">Challenge</h2>
+            </div>
+            <form id="challenge-form" class="form">
+              <p id="challenge-empty" class="empty">Kies rechts een account.</p>
+              <div id="challenge-fields" hidden>
+                <p class="hint">De berekening is een advies. Alleen de knoppen hieronder veranderen of dit account in een cluster mag. Een advies zet de status niet vanzelf om.</p>
+                <div class="form-grid">
+                  <label class="field">Startbalans
+                    <input id="ch-start" type="number" min="0" step="0.01" required>
+                  </label>
+                  <label class="field">Winstdoel
+                    <input id="ch-target" type="number" min="0" step="0.01" required>
+                  </label>
+                  <label class="field">Max drawdown
+                    <input id="ch-dd" type="number" min="0" step="0.01" required>
+                  </label>
+                  <label class="field">Drawdown
+                    <select id="ch-mode">
+                      <option value="static">Vast vanaf de startbalans</option>
+                      <option value="trailing">Trailing vanaf de hoogste stand</option>
+                    </select>
+                  </label>
+                  <label class="field">Daglimiet
+                    <input id="ch-daily" type="number" min="0" step="0.01" placeholder="Leeg = niet gebruiken">
+                  </label>
+                  <label class="field">Minimum tradedagen
+                    <input id="ch-days" type="number" min="1" max="365" step="1" placeholder="Leeg = niet gebruiken">
+                  </label>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn" id="challenge-save">Regels opslaan</button>
+                  <button type="button" class="btn" id="challenge-check">Stand ophalen</button>
+                </div>
+                <div id="challenge-result"></div>
+                <div class="form-actions">
+                  <button type="button" class="btn primary" id="challenge-pass">Markeer als gehaald</button>
+                  <button type="button" class="btn danger" id="challenge-fail">Markeer als gezakt</button>
+                  <button type="button" class="btn ghost" id="challenge-reset">Terug naar evaluatie</button>
+                </div>
+              </div>
+            </form>
+          </section>
+          <section class="panel listing">
+            <div class="panel-head">
+              <h2>Accounts</h2>
+              <span id="challenge-count" class="muted">0</span>
+            </div>
+            <div id="challenge-list" class="card-list"></div>
+          </section>
+        </div>
+      </div>
+
       <div id="view-clusters" class="view" hidden>
         <div class="split">
           <section class="panel editor">
@@ -181,7 +240,7 @@
                 <input id="cluster-align" type="checkbox">
                 <span>Bij start bestaande posities gelijk trekken</span>
               </label>
-              <p class="hint">Uit: alleen nieuwe master-fills. Aan: slaves worden meteen naar master × multiplier gezet. Stoppen sluit geen posities.</p>
+              <p class="hint">Uit: alleen nieuwe master-fills. Aan: slaves worden meteen naar master × multiplier gezet. Stoppen sluit geen posities. Alleen accounts die jij op Challenges als gehaald markeert, kunnen in een cluster.</p>
               <div class="picker-head">
                 <span>Master</span>
                 <span>Slave</span>

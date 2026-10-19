@@ -14,7 +14,7 @@ Een **market order** is een order die meteen tegen de beschikbare prijs wordt ui
 
 Voorbeeld. Jij koopt op de master 1 NQ. De slave staat op multiplier 2. De slave krijgt een market order: koop 2 NQ. Jij zet daarna een target en een stop in Tradovate of TradingView. Die target en stop blijven op de master liggen. De slave heeft ze niet in zijn orderboek. Pas als jouw target of stop vult en de masterpositie daardoor kleiner wordt of naar nul gaat, stuurt de copier een market order die de slave meeneemt.
 
-TradingView zelf staat niet in dit programma. Er is geen veld voor een TradingView-webhook, geen Pine Script, en geen login voor TradingView. Hoe de keten vanuit TradingView toch werkt, staat in hoofdstuk 15.
+TradingView zelf staat niet in dit programma. Er is geen veld voor een TradingView-webhook, geen Pine Script, en geen login voor TradingView. Hoe de keten vanuit TradingView toch werkt, staat in hoofdstuk 16.
 
 ---
 
@@ -108,7 +108,8 @@ Links staat een donkere balk.
 
 - **01 Live Monitor.** Het scherm tijdens het handelen: status, open posities en de log.
 - **02 Accounts.** Hier bewaar je Tradovate-logins.
-- **03 Clusters.** Hier koppel je een master aan slaves.
+- **03 Challenges.** Hier zie je of een challenge gehaald lijkt, en beslis jij of het account in een cluster mag.
+- **04 Clusters.** Hier koppel je een master aan slaves.
 
 Onderin die balk staat een bolletje.
 
@@ -257,9 +258,33 @@ Elke kaart toont:
 
 ---
 
-## 9. Clusters maken, knop voor knop
+## 9. Challenges
 
-Ga naar **03 Clusters**. Er moet minstens één account bestaan. Anders staat er: `Voeg eerst een account toe.`
+Een cluster accepteert alleen accounts die **jij** als gehaald hebt gemarkeerd. Het programma kan een advies geven. Dat advies zet de status niet vanzelf om.
+
+Ga naar **03 Challenges** en klik **Open** bij een account.
+
+| Veld of knop | Wat het doet |
+| --- | --- |
+| Startbalans | De balans waarmee de challenge begon. |
+| Winstdoel | Hoeveel winst erbovenop nodig is, in dollars. |
+| Max drawdown | Hoeveel het saldo mag dalen voordat het advies “lijkt gezakt” wordt. |
+| Drawdown | Vast rekent vanaf de startbalans. Trailing rekent vanaf de hoogste stand die dit programma heeft gezien. |
+| Daglimiet | Optioneel. Leeg betekent: niet controleren. Werkt alleen als Tradovate een dagsaldo meestuurt. |
+| Minimum tradedagen | Optioneel. Leeg betekent: niet controleren. |
+| Regels opslaan | Bewaart de regels. Je status blijft staan. |
+| Stand ophalen | Leest saldo en fills bij Tradovate en vult het advies. |
+| Markeer als gehaald | Jouw beslissing. Daarna mag het account in een cluster. Dit kan ook als het advies nog “bezig” of zelfs “lijkt gezakt” is. In dat laatste geval vraagt het programma extra bevestiging. |
+| Markeer als gezakt | Jouw beslissing. Het account kan niet in een cluster. |
+| Terug naar evaluatie | Haalt jouw beslissing weer weg. Het account kan niet in een cluster. |
+
+De status die jij zet is **Evaluatie**, **Gehaald** of **Gezakt**. Alleen Gehaald komt in de clusterbouwer als kiesbaar account. Een account dat al in een bestaand cluster zit en dat je terugzet, kun je uitvinken. Opslaan of starten weigert zolang er een account tussen zit dat niet op Gehaald staat.
+
+Het advies “lijkt gehaald” verschijnt als de winst op of boven het doel zit, de drawdown niet door de lijn is, de daglimiet niet geraakt is, en het minimum aantal tradedagen gehaald is als je dat invulde. “Lijkt gezakt” verschijnt als het saldo op of onder de drawdownlijn zit, of als het dagverlies door de limiet is. Jij mag daarvan afwijken.
+
+## 10. Clusters maken, knop voor knop
+
+Ga naar **04 Clusters**. Er moet minstens één account op **Gehaald** staan. Anders kun je de rijen niet aanvinken. Staat er nog geen account, dan zie je: `Voeg eerst een account toe.`
 
 ### Clusternaam
 
@@ -307,7 +332,7 @@ Leegt het formulier voor een volgend cluster.
 
 De kaart toont de master, de slaves met hun multiplier (`Slave A ×2.5`), of het cluster alleen nieuwe fills kopieert of bij start gelijk trekt, en het maximum.
 
-**Start.** Begint het volgen. Zie hoofdstuk 10.
+**Start.** Begint het volgen. Zie hoofdstuk 11.
 
 **Stop.** Staat er zolang het cluster **Live** is. Vraagt bevestiging: de copier volgt niet meer, open posities blijven staan.
 
@@ -317,7 +342,7 @@ De kaart toont de master, de slaves met hun multiplier (`Slave A ×2.5`), of het
 
 ---
 
-## 10. Een cluster starten en stoppen
+## 11. Een cluster starten en stoppen
 
 ### Start op demo
 
@@ -355,7 +380,7 @@ Er is geen knop “alles sluiten” of “flatten”. Wil je de posities dicht, 
 
 ---
 
-## 11. Multiplier, met getallen
+## 12. Multiplier, met getallen
 
 De copier telt vanaf de stand die hij zag bij **Start** (tenzij je “gelijk trekken” aan hebt gezet).
 
@@ -378,7 +403,7 @@ De slave-order is altijd een market order voor het verschil tussen waar de slave
 
 ---
 
-## 12. Live Monitor, elke regel en knop
+## 13. Live Monitor, elke regel en knop
 
 ### De vier tegels
 
@@ -430,7 +455,7 @@ De log scrolt vanzelf naar beneden, behalve als jij omhoog bent gescrold om iets
 
 ---
 
-## 13. Een complete eerste testrit
+## 14. Een complete eerste testrit
 
 Doe dit op demo, met twee demo-accounts.
 
@@ -438,20 +463,21 @@ Doe dit op demo, met twee demo-accounts.
 2. Maak bij Tradovate twee demo API-keys, of één key als beide subaccounts onder dezelfde demo-login vallen. Hoofdstuk 7.
 3. **Accounts.** Maak de master. Omgeving Demo. Proxy uit. **Verbinding testen.** Kies het juiste subaccount. **Opslaan.**
 4. Maak de slave op dezelfde manier.
-5. **Clusters.** Naam `Test`. Maximum 20. Laat “gelijk trekken” uit. Rondje bij de master. Vink de slave aan. Multiplier 1. **Cluster opslaan.**
-6. **Start.**
-7. In de log verwacht je regels als `Master gekoppeld aan …`, `Slave gekoppeld aan …`, `route: Direct`, en `Cluster gestart. Alleen nieuwe master-fills worden gekopieerd.`
-8. Koop op de master 1 contract market, in Tradovate of in TradingView dat aan deze master hangt.
-9. In de log verwacht je `Master SYMbool 0 → 1`, daarna `Order geplaatst Buy 1 …`, daarna `Order geslaagd`.
-10. In Open posities staan twee regels: de master long 1, de slave long 1.
-11. Sluit de master (verkoop 1). De slave hoort ook naar 0 te gaan en uit de tabel te verdwijnen.
-12. Druk op **Stop**. De posities, als er nog een openstond, blijven bij Tradovate bestaan.
+5. **Challenges.** Open elk account, vul een startbalans, winstdoel en drawdown in, en klik **Markeer als gehaald**. Zonder die beslissing weigert het cluster.
+6. **Clusters.** Naam `Test`. Maximum 20. Laat “gelijk trekken” uit. Rondje bij de master. Vink de slave aan. Multiplier 1. **Cluster opslaan.**
+7. **Start.**
+8. In de log verwacht je regels als `Master gekoppeld aan …`, `Slave gekoppeld aan …`, `route: Direct`, en `Cluster gestart. Alleen nieuwe master-fills worden gekopieerd.`
+9. Koop op de master 1 contract market, in Tradovate of in TradingView dat aan deze master hangt.
+10. In de log verwacht je `Master SYMbool 0 → 1`, daarna `Order geplaatst Buy 1 …`, daarna `Order geslaagd`.
+11. In Open posities staan twee regels: de master long 1, de slave long 1.
+12. Sluit de master (verkoop 1). De slave hoort ook naar 0 te gaan en uit de tabel te verdwijnen.
+13. Druk op **Stop**. De posities, als er nog een openstond, blijven bij Tradovate bestaan.
 
 Werkt stap 8 tot en met 11, dan is de keten goed. Pas daarna ga je naar live of naar een andere multiplier.
 
 ---
 
-## 14. Vanuit TradingView
+## 15. Vanuit TradingView
 
 ### Hoe de keten in elkaar zit
 
@@ -493,7 +519,7 @@ Wil je oefenen mét de copier, dan gebruik je het **demo-account van Tradovate**
 | --- | --- |
 | Market kopen of verkopen, en hij vult | Slave krijgt meteen een market order voor het positieverschil × multiplier. |
 | Limiet die nog niet vult | Niets. De slave blijft staan tot er een fill is. |
-| Limiet die deels vult | Slave krijgt alleen het gevulde stuk. Zie hoofdstuk 16. |
+| Limiet die deels vult | Slave krijgt alleen het gevulde stuk. Zie hoofdstuk 17. |
 | Stop of target die later vult | Op het moment van de fill verandert de masterpositie, en de slave volgt met een market order. |
 | Order intrekken voordat hij vult | Niets. Er was geen positieverandering. |
 | Alleen een alert, een pijl, of een Pine-melding | Niets, tenzij die alert zelf een echte order op het Tradovate-masteraccount plaatst. Een webhook-URL naar dit programma bestaat niet. |
@@ -518,12 +544,12 @@ Wil je dat een slave een eigen stop heeft terwijl de master-stop nog niet geraak
 
 ---
 
-## 15. Wat er tijdens een trade stap voor stap gebeurt
+## 16. Wat er tijdens een trade stap voor stap gebeurt
 
 1. Tradovate stuurt een positiebericht: dit account, dit contract, nieuwe netto stand.
 2. Het bericht hoort bij de master. Berichten van een slave werken de tabel bij, maar starten geen nieuwe copy.
 3. De log krijgt een regel `Master MNQZ5 0 → 1`.
-4. Voor elke slave wordt het doel uitgerekend, zoals in hoofdstuk 11.
+4. Voor elke slave wordt het doel uitgerekend, zoals in hoofdstuk 12.
 5. Is het verschil 0, dan gebeurt er niets. Dat zie je bij een kleine multiplier, of als de slave al op het doel staat.
 6. Is het verschil groter dan **Max ordergrootte**, dan komt er een error en wordt er niet gestuurd.
 7. Anders gaat er een market order weg. De log zegt `Order geplaatst Buy 2 MNQZ5 (×2) via Direct`.
@@ -534,7 +560,7 @@ Verandert de master nog een keer terwijl stap 7 nog bezig is, dan wacht die twee
 
 ---
 
-## 16. Foutafhandeling
+## 17. Foutafhandeling
 
 Dit hoofdstuk is de naslag voor “er ging iets mis”. Per situatie: wat jij ziet, wat het programma doet, en wat jij daarna doet.
 
@@ -626,11 +652,11 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 
 ### Het logboek zegt success, maar de positietabel klopt niet meteen
 
-`Order geslaagd` betekent: Tradovate heeft de opdracht aangenomen. De tabel wacht op het positiebericht dat daarna komt. Dat is meestal binnen een seconde. Blijft de tabel achter terwijl de log success zei, kijk dan in Tradovate zelf of de order daar gevuld, deels gevuld of alleen geaccepteerd is. Hoofdstuk 16, “niet helemaal gevuld”, beschrijft wat de copier daarna doet.
+`Order geslaagd` betekent: Tradovate heeft de opdracht aangenomen. De tabel wacht op het positiebericht dat daarna komt. Dat is meestal binnen een seconde. Blijft de tabel achter terwijl de log success zei, kijk dan in Tradovate zelf of de order daar gevuld, deels gevuld of alleen geaccepteerd is. Hoofdstuk 17, “niet helemaal gevuld”, beschrijft wat de copier daarna doet.
 
 ---
 
-## 17. Wat het programma bewust niet doet
+## 18. Wat het programma bewust niet doet
 
 - Het kopieert geen rustende limieten, stops of brackets. Alleen positieveranderingen.
 - Het sluit niets als je op Stop drukt.
@@ -644,9 +670,9 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 
 ---
 
-## 18. Veilig werken
+## 19. Veilig werken
 
-- Oefen de hele testrit van hoofdstuk 13 op demo voordat een account op Live staat.
+- Oefen de hele testrit van hoofdstuk 14 op demo voordat een account op Live staat.
 - Een live start vraagt een extra bevestiging. Lees hem.
 - Houd **Max ordergrootte** laag tot je de multiplier vertrouwt.
 - “Gelijk trekken” op live kan meteen een grote market order zijn. Laat het uit tenzij je die orders echt wilt.
@@ -657,7 +683,7 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 
 ---
 
-## 19. Problemen oplossen
+## 20. Problemen oplossen
 
 | Wat je ziet | Oorzaak | Oplossing |
 | --- | --- | --- |
@@ -667,8 +693,8 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 | Bolletje “Server weg” | De pagina was open terwijl de server stopte. | `npm start` en de pagina verversen. |
 | Verbinding testen faalt met username/password | Verkeerde login, of demo-key op live. | Hoofdstuk 7 en 8 nalopen. Omgeving moet bij de key horen. |
 | Captcha of p-ticket | Tradovate wil een gewone login eerst. | Inloggen op de Tradovate-site, daarna opnieuw testen. |
-| Test lukt, maar een trade in TradingView kopieert niet | TradingView staat op Paper Trading, of op een ander subaccount dan de master. | Hoofdstuk 14. Cluster moet op **Live** (gestart) staan. |
-| Alleen een deel van de limiet is gekopieerd | Alleen het gevulde deel telt. | Hoofdstuk 16. De rest volgt als die ook vult. |
+| Test lukt, maar een trade in TradingView kopieert niet | TradingView staat op Paper Trading, of op een ander subaccount dan de master. | Hoofdstuk 15. Cluster moet op **Live** (gestart) staan. |
+| Alleen een deel van de limiet is gekopieerd | Alleen het gevulde deel telt. | Hoofdstuk 17. De rest volgt als die ook vult. |
 | Slave blijft achter na een rare fill | De automatische inhaal wacht op de volgende master-beweging. | Positietabel vergelijken met Tradovate. Zo nodig handmatig rechtzetten. |
 | Rode kaart “maximum” | Copy groter dan het maximum. | Maximum of multiplier aanpassen. Cluster was gestopt nodig om te bewerken. |
 | Proxy-fout terwijl je direct wilt | **Proxy aan** staat aan. | Schakelaar uit, opslaan. |
@@ -679,7 +705,7 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 
 ---
 
-## 20. Dagelijks gebruik, korte lijst
+## 21. Dagelijks gebruik, korte lijst
 
 1. Pc aan. PowerShell in `C:\Users\strij\Trade copier`.
 2. `npm start`. Venster open laten.
@@ -692,7 +718,7 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 
 ---
 
-## 21. Waar de gegevens staan
+## 22. Waar de gegevens staan
 
 | Bestand of map | Inhoud |
 | --- | --- |

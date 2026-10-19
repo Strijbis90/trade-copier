@@ -167,6 +167,49 @@ class TradovateClient {
     return this.subAccounts;
   }
 
+  tradeDayKey(value) {
+    if (!value) return '';
+    if (typeof value === 'object') return `${value.year}-${value.month}-${value.day}`;
+    return String(value).slice(0, 10);
+  }
+
+  async readChallengeFacts() {
+    if (!this.token) await this.authenticate();
+    await this.listSubAccounts();
+    const trading = this.resolveSubAccount(this.account.tradovateAccountId);
+    const cash = await this.http('GET', '/cashBalance/list', undefined, this.token);
+    if (cash.status >= 400) {
+      const msg = cash.data?.errorText || cash.statusText || 'cashBalance/list mislukt';
+      throw new Error(`Tradovate ${cash.status}: ${msg}`);
+    }
+    const rows = Array.isArray(cash.data) ? cash.data : [];
+    const row = rows.find((item) => String(item.accountId) === String(trading.id));
+    if (!row || !Number.isFinite(Number(row.amount))) {
+      throw new Error('Geen saldo gevonden voor dit Tradovate-account.');
+    }
+    const dayPnl = Number.isFinite(Number(row.amountSOD))
+      ? Math.round((Number(row.amount) - Number(row.amountSOD)) * 100) / 100
+      : null;
+    let tradingDays = null;
+    const fills = await this.http('GET', '/fill/list', undefined, this.token);
+    if (fills.status < 400 && Array.isArray(fills.data)) {
+      const days = new Set();
+      for (const fill of fills.data) {
+        if (String(fill.accountId) !== String(trading.id)) continue;
+        const key = this.tradeDayKey(fill.tradeDate) || this.tradeDayKey(fill.timestamp);
+        if (key) days.add(key);
+      }
+      tradingDays = days.size;
+    }
+    return {
+      balance: Number(row.amount),
+      dayPnl,
+      tradingDays,
+      accountId: trading.id,
+      accountName: trading.name
+    };
+  }
+
   resolveSubAccount(preferredId) {
     const wanted = preferredId || null;
     if (wanted) {
