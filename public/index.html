@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tradovate Trade Copier</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="3" y="18" width="6" height="11" rx="1"></rect>
+          <rect x="13" y="8" width="6" height="21" rx="1"></rect>
+          <rect x="23" y="13" width="6" height="16" rx="1"></rect>
+        </svg>
+        <div>
+          <strong>Trade Copier</strong>
+          <small>Tradovate</small>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Hoofdmenu">
+        <button type="button" class="nav-btn active" data-view="monitor">
+          <span class="nav-kicker">01</span> Live Monitor
+        </button>
+        <button type="button" class="nav-btn" data-view="accounts">
+          <span class="nav-kicker">02</span> Accounts
+        </button>
+        <button type="button" class="nav-btn" data-view="clusters">
+          <span class="nav-kicker">03</span> Clusters
+        </button>
+      </nav>
+      <div class="side-foot">
+        <div class="conn">
+          <span id="sock-dot" class="dot"></span>
+          <span id="sock-label">Verbinden</span>
+        </div>
+        <p>Secrets blijven lokaal in <code>data/</code>. Standaard alleen bereikbaar op deze machine.</p>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <p id="eyebrow" class="eyebrow">Realtime</p>
+          <h1 id="page-title">Live Monitor</h1>
+        </div>
+        <div class="top-meta">
+          <span id="clock" class="clock">--:--:--</span>
+          <span class="pill">localhost</span>
+        </div>
+      </header>
+
+      <div id="view-monitor" class="view">
+        <div class="stat-row" id="stats"></div>
+        <div class="cluster-strip" id="cluster-strip"></div>
+        <div class="monitor-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Open posities</h2>
+              <span id="pos-count" class="muted">0</span>
+            </div>
+            <div class="f-table" id="positions">
+              <div class="f-head">
+                <span class="c-cluster">Cluster</span>
+                <span class="c-account">Account</span>
+                <span class="c-role">Rol</span>
+                <span class="c-route">Route</span>
+                <span class="c-symbol">Symbool</span>
+                <span class="c-side">Side</span>
+                <span class="c-qty">Netto</span>
+                <span class="c-price">Prijs</span>
+              </div>
+              <div id="position-rows" class="f-body"></div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Logs</h2>
+              <button type="button" id="clear-logs" class="btn ghost sm">Wis</button>
+            </div>
+            <div class="f-table" id="log-scroll">
+              <div class="f-head">
+                <span class="c-time">Tijd</span>
+                <span class="c-level">Niveau</span>
+                <span class="c-account">Account</span>
+                <span class="c-msg">Bericht</span>
+                <span class="c-lat">Latency</span>
+              </div>
+              <div id="log-rows" class="f-body"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div id="view-accounts" class="view" hidden>
+        <div class="split">
+          <section class="panel editor">
+            <div class="panel-head">
+              <h2 id="account-form-title">Account toevoegen</h2>
+              <button type="button" id="account-reset" class="btn ghost sm">Nieuw</button>
+            </div>
+            <form id="account-form" class="form" autocomplete="off">
+              <input type="hidden" id="account-id">
+              <div class="form-grid">
+                <label class="field">Naam
+                  <input id="acc-name" name="name" required maxlength="80" placeholder="Master demo">
+                </label>
+                <label class="field">Omgeving
+                  <select id="acc-env" name="environment">
+                    <option value="demo">Demo</option>
+                    <option value="live">Live</option>
+                  </select>
+                </label>
+                <label class="field">App ID
+                  <input id="acc-app" name="appId" maxlength="80" placeholder="Naam van je API-key" value="TradeCopier">
+                </label>
+                <label class="field">Client ID
+                  <input id="acc-cid" name="clientId" required maxlength="40" inputmode="numeric" placeholder="cid">
+                </label>
+                <label class="field">Secret
+                  <input id="acc-secret" name="secret" type="password" maxlength="200" autocomplete="new-password" placeholder="API secret">
+                </label>
+                <label class="field">Gebruikersnaam
+                  <input id="acc-user" name="username" required maxlength="80" autocomplete="off">
+                </label>
+                <label class="field wide">Wachtwoord
+                  <input id="acc-pass" name="password" type="password" maxlength="200" autocomplete="new-password" placeholder="Tradovate-wachtwoord">
+                </label>
+                <div class="proxy-row">
+                  <label class="field grow">Proxy URL
+                    <input id="acc-proxy" name="proxyUrl" placeholder="socks5://127.0.0.1:1080 of http://host:8080">
+                  </label>
+                  <label class="switch">
+                    <input id="acc-use-proxy" type="checkbox">
+                    <span>Proxy aan</span>
+                  </label>
+                </div>
+                <label class="field wide">Tradovate-account
+                  <select id="acc-sub">
+                    <option value="">Test de verbinding om accounts op te halen</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hint">Proxy uit betekent dat dit account direct vanaf deze host verbindt, ook als er een URL is ingevuld. App ID is de naam van de Tradovate API-key.</p>
+              <div class="form-actions">
+                <button type="submit" class="btn primary" id="account-save">Opslaan</button>
+                <button type="button" class="btn" id="account-test">Verbinding testen</button>
+              </div>
+            </form>
+          </section>
+          <section class="panel listing">
+            <div class="panel-head">
+              <h2>Opgeslagen accounts</h2>
+              <span id="account-count" class="muted">0</span>
+            </div>
+            <div id="account-list" class="card-list"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="view-clusters" class="view" hidden>
+        <div class="split">
+          <section class="panel editor">
+            <div class="panel-head">
+              <h2 id="cluster-form-title">Cluster bouwen</h2>
+              <button type="button" id="cluster-reset" class="btn ghost sm">Nieuw</button>
+            </div>
+            <form id="cluster-form" class="form">
+              <input type="hidden" id="cluster-id">
+              <div class="form-grid">
+                <label class="field">Clusternaam
+                  <input id="cluster-name" required maxlength="80" placeholder="NQ scalper">
+                </label>
+                <label class="field">Max ordergrootte
+                  <input id="cluster-max" type="number" min="1" max="500" step="1" value="20">
+                </label>
+              </div>
+              <label class="check-line">
+                <input id="cluster-align" type="checkbox">
+                <span>Bij start bestaande posities gelijk trekken</span>
+              </label>
+              <p class="hint">Uit: alleen nieuwe master-fills. Aan: slaves worden meteen naar master × multiplier gezet. Stoppen sluit geen posities.</p>
+              <div class="picker-head">
+                <span>Master</span>
+                <span>Slave</span>
+                <span>Account</span>
+                <span>Multiplier</span>
+              </div>
+              <div id="picker" class="picker"></div>
+              <div class="form-actions">
+                <button type="submit" class="btn primary" id="cluster-save">Cluster opslaan</button>
+              </div>
+            </form>
+          </section>
+          <section class="panel listing">
+            <div class="panel-head">
+              <h2>Clusters</h2>
+              <span id="cluster-count" class="muted">0</span>
+            </div>
+            <div id="cluster-list" class="card-list"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title"></h3>
+      <p id="modal-body"></p>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn ghost">Annuleer</button>
+        <button type="button" id="modal-ok" class="btn primary">Bevestig</button>
+      </div>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
