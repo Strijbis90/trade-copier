@@ -110,6 +110,7 @@ Links staat een donkere balk.
 - **02 Accounts.** Hier bewaar je Tradovate-logins.
 - **03 Challenges.** Hier zie je of een challenge gehaald lijkt, en beslis jij of het account in een cluster mag.
 - **04 Clusters.** Hier koppel je een master aan slaves.
+- **05 Analytics & Multi-Challenge Tracker.** Hier zie je alle accounts naast elkaar: dag-P&L, of de trade van vandaag al gemaakt is, de voortgang naar het doel en de resterende verliesbuffer.
 
 Onderin die balk staat een bolletje.
 
@@ -724,5 +725,27 @@ De fout is: `Dit account zit nog in een cluster. Verwijder het cluster eerst.` D
 | --- | --- |
 | `data\accounts.json` | Accounts, inclusief wachtwoorden en secrets. |
 | `data\clusters.json` | Clusters, masters, slaves, multipliers. Geen wachtwoorden. |
+| `data\trades.json` | Fills, sluitingen en dag-P&L per account. Geen wachtwoorden. |
 | Live Monitor-log | Alleen in het geheugen. Weg na **Wis** of na het stoppen van het programma. |
 | `npm start` | Moet draaien, anders is de pagina dood en kopieert er niets. |
+
+---
+
+## 23. Analytics & Multi-Challenge Tracker
+
+Dit scherm is bedoeld als je meerdere challenges tegelijk volgt, tot een stuk of tien.
+
+1. Ga naar **05 Analytics & Multi-Challenge Tracker**.
+2. Het programma leest bij Tradovate het saldo, de fills, de open posities en de werkende orders. Die fills en sluitingen worden lokaal bewaard in `data\trades.json`.
+3. Bovenaan staat de dagwinst van alle accounts bij elkaar, en hoeveel accounts vandaag al een trade hebben gemaakt.
+4. Elke tegel is één account.
+   - Groen **Klaar voor trade**: vandaag nog 0 trades.
+   - Rood **1 Trade gemaakt - Knoppen vast!**: vandaag 1 of meer trades, of er staat nu een positie open.
+   - **Target** loopt naar $1.250, tenzij je op Challenges een ander winstdoel hebt opgeslagen.
+   - **Drawdown buffer** is wat er nog over is van $1.000 max verlies, of van de max drawdown die je zelf hebt ingevuld. Zonder startbalans is dat een schatting.
+   - Een gele consistency-regel verschijnt zodra er minstens twee dagen zijn en de beste dag meer dan 50% van de totale winst is.
+   - De safety-regel onderaan wordt geel zolang er een open positie of een rustende limit/stop in het orderboek staat.
+5. **Vernieuwen** haalt de stand meteen opnieuw op. Het scherm doet dat ook zelf, ongeveer elke 20 seconden, zolang je op dit tabblad blijft.
+6. De tabel **Dagelijks historie** toont per datum de P&L en het aantal trades van elk account.
+
+Een draaiend cluster wordt niet onderbroken: als die Tradovate-login al verbonden is, gebruikt Analytics die sessie. De status op dit scherm verandert niet of een account op Challenges op gehaald staat. Dat beslis je daar zelf.

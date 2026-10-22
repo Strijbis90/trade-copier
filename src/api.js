@@ -100,7 +100,7 @@ function accountViews(store, copier) {
   });
 }
 
-function createApi({ store, copier, logger }) {
+function createApi({ store, copier, logger, analytics }) {
   const express = require('express');
   const router = express.Router();
 
@@ -111,6 +111,14 @@ function createApi({ store, copier, logger }) {
       logs: logger.list(),
       ...copier.snapshot()
     });
+  });
+
+  router.get('/analytics/all-challenges', async (req, res) => {
+    try {
+      res.json(await analytics.load());
+    } catch (err) {
+      sendError(res, err);
+    }
   });
 
   router.post('/logs/clear', (req, res) => {

@@ -12,7 +12,8 @@ const titles = {
   monitor: ['Realtime', 'Live Monitor'],
   accounts: ['Credentials', 'Accounts'],
   challenges: ['Jij beslist', 'Challenges'],
-  clusters: ['Master / slaves', 'Cluster builder']
+  clusters: ['Master / slaves', 'Cluster builder'],
+  analytics: ['10 challenges', 'Analytics & Multi-Challenge Tracker']
 };
 
 const phaseLabel = { evaluatie: 'Evaluatie', gehaald: 'Gehaald', gezakt: 'Gezakt' };
@@ -111,6 +112,8 @@ function setView(view) {
   const [eyebrow, title] = titles[view];
   document.getElementById('eyebrow').textContent = eyebrow;
   document.getElementById('page-title').textContent = title;
+  if (view === 'analytics') startAnalytics();
+  else stopAnalytics();
 }
 
 function renderStats() {
@@ -681,6 +684,133 @@ async function decideChallenge(phase) {
   }
 }
 
+let analyticsTimer = null;
+let analyticsLoading = false;
+
+function pnlClass(value) {
+  if (value == null || Number(value) === 0) return 'flat';
+  return Number(value) > 0 ? 'up' : 'down';
+}
+
+function barWidth(part, total) {
+  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) return 0;
+  return Math.max(0, Math.min(100, (part / total) * 100));
+}
+
+function renderAnalytics(report) {
+  const summary = report.summary || { accountCount: 0, dayPnl: null, tradedToday: 0, readyToday: 0, dayPnlMissing: 0 };
+  const dayText = summary.dayPnl == null ? '—' : moneyText(summary.dayPnl);
+  const missing = summary.dayPnlMissing
+    ? ` · ${summary.dayPnlMissing} zonder dagsaldo`
+    : '';
+  document.getElementById('analytics-stats').innerHTML = `
+    <div class="stat"><span>Totale dagwinst</span><b class="${pnlClass(summary.dayPnl)}">${esc(dayText)}</b></div>
+    <div class="stat"><span>Trade vandaag gemaakt</span><b>${esc(summary.tradedToday)} / ${esc(summary.accountCount)}</b></div>
+    <div class="stat"><span>Klaar voor trade</span><b>${esc(summary.readyToday)}</b></div>
+  `;
+  document.getElementById('analytics-updated').textContent = report.asOf
+    ? `Bijgewerkt ${formatTime(report.asOf)}${missing}`
+    : '';
+  const grid = document.getElementById('analytics-grid');
+  if (!report.accounts?.length) {
+    grid.innerHTML = '<p class="empty">Nog geen accounts. Voeg ze toe onder Accounts.</p>';
+  } else {
+    grid.innerHTML = report.accounts.map(renderChallengeCard).join('');
+  }
+  renderAnalyticsHistory(report.history || []);
+}
+
+function renderChallengeCard(card) {
+  const targetWidth = barWidth(Math.max(0, card.profitProgress || 0), card.profitTarget);
+  const bufferWidth = barWidth(Math.max(0, card.drawdownRemaining || 0), card.maxLoss);
+  const bufferHot = card.drawdownRemaining != null && card.maxLoss > 0 && card.drawdownRemaining / card.maxLoss <= 0.25;
+  const bufferWarn = !bufferHot && card.drawdownRemaining != null && card.maxLoss > 0 && card.drawdownRemaining / card.maxLoss <= 0.5;
+  return `
+    <article class="challenge-card">
+      <header>
+        <div>
+          <b>${esc(card.name)}</b>
+          <small>${esc(card.subaccount || 'Geen subaccount')} · ${esc(card.environment)} · ${esc(phaseLabel[card.phase] || '')}</small>
+        </div>
+        <span class="tag ${card.status === 'used' ? 'used' : 'ready'}">${esc(card.statusLabel)}</span>
+      </header>
+      <p class="day-pnl ${pnlClass(card.dayPnl)}">${esc(card.dayPnl == null ? '—' : moneyText(card.dayPnl))}</p>
+      <p class="faint">${esc(card.tradesToday)} trade${card.tradesToday === 1 ? '' : 's'} vandaag</p>
+      <div class="meter">
+        <div class="meter-top"><span>Target</span><span>${esc(moneyText(card.profitProgress))} / ${esc(moneyText(card.profitTarget))}</span></div>
+        <div class="bar"><span style="width:${targetWidth}%"></span></div>
+      </div>
+      <div class="meter">
+        <div class="meter-top"><span>Drawdown buffer</span><span>${esc(card.drawdownRemaining == null ? '—' : moneyText(card.drawdownRemaining))} van ${esc(moneyText(card.maxLoss))}</span></div>
+        <div class="bar buffer ${bufferHot ? 'bad' : bufferWarn ? 'warn' : ''}"><span style="width:${bufferWidth}%"></span></div>
+      </div>
+      ${card.estimated ? '<p class="faint">Buffer is een schatting tot startbalans en saldo bekend zijn.</p>' : ''}
+      ${card.consistency?.warning ? `<p class="tag warn-tag">${esc(card.consistency.warning)}</p>` : ''}
+      <p class="guard ${card.safety?.clear ? '' : 'hot'}">${esc(card.safety?.message || '')}</p>
+      ${card.error ? `<p class="card-error">${esc(card.error)}</p>` : ''}
+    </article>
+  `;
+}
+
+function renderAnalyticsHistory(history) {
+  const host = document.getElementById('analytics-history');
+  if (!history.length) {
+    host.innerHTML = '<p class="empty">Nog geen opgeslagen dagen. Vernieuwen bewaart de dag-P&amp;L van vandaag.</p>';
+    return;
+  }
+  const rows = history.slice(0, 60).flatMap((day) => {
+    const accountRows = day.accounts.map((row) => `
+      <div class="h-row">
+        <span class="h-date">${esc(day.date)}</span>
+        <span class="h-account">${esc(row.name)}</span>
+        <span class="h-pnl ${pnlClass(row.pnl)}">${esc(row.pnl == null ? '—' : moneyText(row.pnl))}</span>
+        <span class="h-trades">${esc(row.trades)}</span>
+      </div>
+    `);
+    accountRows.push(`
+      <div class="h-row total">
+        <span class="h-date">${esc(day.date)}</span>
+        <span class="h-account">Totaal</span>
+        <span class="h-pnl ${pnlClass(day.totalPnl)}">${esc(day.totalPnl == null ? '—' : moneyText(day.totalPnl))}</span>
+        <span class="h-trades">${esc(day.accounts.reduce((sum, row) => sum + Number(row.trades || 0), 0))}</span>
+      </div>
+    `);
+    return accountRows;
+  });
+  host.innerHTML = `
+    <div class="h-head"><span class="h-date">Datum</span><span class="h-account">Account</span><span class="h-pnl">P&amp;L</span><span class="h-trades">Trades</span></div>
+    ${rows.join('')}
+  `;
+}
+
+async function loadAnalytics() {
+  if (analyticsLoading) return;
+  const button = document.getElementById('analytics-refresh');
+  analyticsLoading = true;
+  if (button) button.disabled = true;
+  try {
+    renderAnalytics(await api('/api/analytics/all-challenges'));
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    analyticsLoading = false;
+    if (button) button.disabled = false;
+  }
+}
+
+function startAnalytics() {
+  stopAnalytics();
+  loadAnalytics();
+  analyticsTimer = setInterval(() => {
+    if (state.view === 'analytics') loadAnalytics();
+  }, 20000);
+}
+
+function stopAnalytics() {
+  clearInterval(analyticsTimer);
+  analyticsTimer = null;
+}
+
 function refreshPickerIfIdle() {
   const host = document.getElementById('picker');
   if (!host || host.contains(document.activeElement)) return;
@@ -708,6 +838,7 @@ document.getElementById('challenge-pass').addEventListener('click', () => decide
 document.getElementById('challenge-fail').addEventListener('click', () => decideChallenge('gezakt'));
 document.getElementById('challenge-reset').addEventListener('click', () => decideChallenge('evaluatie'));
 document.getElementById('cluster-reset').addEventListener('click', resetClusterForm);
+document.getElementById('analytics-refresh').addEventListener('click', loadAnalytics);
 document.getElementById('picker').addEventListener('change', syncPickerLocks);
 document.getElementById('clear-logs').addEventListener('click', async () => {
   try {

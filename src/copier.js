@@ -4,10 +4,11 @@ const { desiredNet, orderDelta } = require('./qty');
 const { assertClusterEligible, evaluateChallenge, normalizeChallenge } = require('./challenge');
 
 class Copier {
-  constructor({ store, io, log }) {
+  constructor({ store, io, log, tradeLog }) {
     this.store = store;
     this.io = io;
     this.log = log;
+    this.tradeLog = tradeLog || null;
     this.runs = new Map();
     this.accountStatus = new Map();
   }
@@ -226,6 +227,50 @@ class Copier {
     }
   }
 
+  findClient(account) {
+    const key = this.loginKey(account);
+    const proxy = this.proxySig(account);
+    for (const run of this.runs.values()) {
+      if (run.stopped) continue;
+      const client = run.clientPool.get(key);
+      if (!client || client.closed || !client.token) continue;
+      if (this.proxySig(client.account) !== proxy) continue;
+      return client;
+    }
+    return null;
+  }
+
+  recordFills(run, client, fills) {
+    if (!this.tradeLog || !Array.isArray(fills) || !fills.length) return;
+    const rows = [];
+    for (const fill of fills) {
+      const slot = this.slotsOf(run).find((item) => String(item.tradingAccount?.id) === String(fill.accountId));
+      if (!slot) continue;
+      rows.push({
+        id: fill.id,
+        environment: slot.account.environment,
+        localAccountId: slot.account.id,
+        tradovateAccountId: fill.accountId,
+        contractId: fill.contractId,
+        symbol: fill.symbol || client.contracts.get(fill.contractId) || '',
+        action: fill.action,
+        qty: fill.qty,
+        price: fill.price,
+        timestamp: fill.timestamp,
+        tradeDate: fill.tradeDate,
+        orderId: fill.orderId
+      });
+    }
+    if (!rows.length) return;
+    this.tradeLog.addFills(rows).catch((err) => {
+      this.log.push({
+        level: 'warn',
+        cluster: run.cluster.name,
+        message: `Fill niet opgeslagen: ${err.message}`
+      });
+    });
+  }
+
   loginKey(account) {
     return `${account.environment}|${String(account.username).trim().toLowerCase()}`;
   }
@@ -258,6 +303,7 @@ class Copier {
           this.onPosition(run, slot, position);
         }
       };
+      client.onFills = (fills) => this.recordFills(run, client, fills);
     } else if (this.proxySig(client.account) !== this.proxySig(account)) {
       throw new Error('Dezelfde Tradovate-login moet dezelfde proxy-instelling gebruiken.');
     }

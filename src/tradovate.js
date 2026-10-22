@@ -52,6 +52,7 @@ class TradovateClient {
     this.reconnects = 0;
     this.onPosition = null;
     this.onStatus = null;
+    this.onFills = null;
   }
 
   setStatus(connection, message) {
@@ -171,6 +172,63 @@ class TradovateClient {
     if (!value) return '';
     if (typeof value === 'object') return `${value.year}-${value.month}-${value.day}`;
     return String(value).slice(0, 10);
+  }
+
+  async readBook() {
+    if (!this.token) await this.authenticate();
+    if (!this.subAccounts.length) await this.listSubAccounts();
+    const paths = ['/cashBalance/list', '/fill/list', '/position/list', '/order/list'];
+    let responses = await Promise.all(paths.map((item) => this.http('GET', item, undefined, this.token)));
+    if (responses.some((res) => res.status === 401)) {
+      await this.authenticate();
+      responses = await Promise.all(paths.map((item) => this.http('GET', item, undefined, this.token)));
+    }
+    const take = (res) => ({
+      ok: Boolean(res) && res.status < 400,
+      rows: Array.isArray(res?.data) ? res.data : []
+    });
+    const cash = take(responses[0]);
+    const fills = take(responses[1]);
+    const positions = take(responses[2]);
+    const orders = take(responses[3]);
+    const ids = new Set();
+    for (const row of [...fills.rows, ...positions.rows, ...orders.rows]) {
+      if (row?.contractId) ids.add(row.contractId);
+    }
+    await this.resolveContracts([...ids].filter((id) => !this.contracts.has(id)).slice(0, 40));
+    const symbols = {};
+    for (const [id, name] of this.contracts) symbols[String(id)] = name;
+    const warnings = [];
+    if (!cash.ok) warnings.push('Saldo niet opgehaald.');
+    if (!fills.ok) warnings.push('Fills niet opgehaald.');
+    if (!positions.ok) warnings.push('Posities niet opgehaald.');
+    if (!orders.ok) warnings.push('Orders niet opgehaald.');
+    return {
+      subAccounts: this.subAccounts,
+      cash: cash.rows,
+      fills: fills.rows,
+      positions: positions.rows,
+      orders: orders.rows,
+      fillsKnown: fills.ok,
+      positionsKnown: positions.ok,
+      ordersKnown: orders.ok,
+      symbols,
+      warning: warnings.join(' ')
+    };
+  }
+
+  async resolveContracts(ids) {
+    for (let index = 0; index < ids.length; index += 5) {
+      const slice = ids.slice(index, index + 5);
+      await Promise.all(slice.map(async (id) => {
+        try {
+          const res = await this.http('GET', `/contract/item?id=${encodeURIComponent(id)}`, undefined, this.token);
+          if (res.status < 400 && res.data?.name) this.contracts.set(id, res.data.name);
+        } catch {
+          // Het contractnummer blijft staan tot een latere vernieuwing.
+        }
+      }));
+    }
   }
 
   async readChallengeFacts() {
@@ -389,7 +447,30 @@ class TradovateClient {
         }
       }
     }
+    const captured = [];
+    for (const fill of data?.fills || []) this.captureFill(fill, captured);
+    this.flushFills(captured);
     this.ready = true;
+  }
+
+  captureFill(entity, bucket) {
+    if (!entity?.id || !entity.accountId) return;
+    bucket.push({
+      id: entity.id,
+      orderId: entity.orderId || null,
+      contractId: entity.contractId || null,
+      timestamp: entity.timestamp || null,
+      tradeDate: entity.tradeDate || null,
+      action: entity.action || '',
+      qty: entity.qty,
+      price: entity.price,
+      accountId: entity.accountId,
+      symbol: this.contracts.get(entity.contractId) || ''
+    });
+  }
+
+  flushFills(bucket) {
+    if (bucket.length && this.onFills) this.onFills(bucket);
   }
 
   flushQueue() {
@@ -411,6 +492,12 @@ class TradovateClient {
     if (!entity) return;
     if (entityType === 'contract' && entity.id && entity.name) {
       this.contracts.set(entity.id, entity.name);
+      return;
+    }
+    if (entityType === 'fill') {
+      const captured = [];
+      this.captureFill(entity, captured);
+      this.flushFills(captured);
       return;
     }
     if (entityType !== 'position' || !entity.accountId || !entity.contractId) return;
