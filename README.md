@@ -20,5 +20,6 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 3. Test de verbinding en kies het Tradovate-account als de login er meerdere heeft.
 4. Bouw een cluster: één master, slaves via checkboxes, en een multiplier per slave.
 5. Start het cluster en volg orders, fouten, latency en open posities in Live Monitor.
+6. Op Analytics & Multi-Challenge Tracker zie je per account de dag-P&L, of de trade van vandaag al gemaakt is, en de resterende buffer.
 
 Stoppen sluit geen posities. Demo en live mogen niet in hetzelfde cluster. De server bindt standaard aan `127.0.0.1`.

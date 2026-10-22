@@ -33,6 +33,10 @@
         <button type="button" class="nav-btn" data-view="clusters">
           <span class="nav-kicker">04</span> Clusters
         </button>
+        <button type="button" class="nav-btn" data-view="analytics">
+          <span class="nav-kicker">05</span>
+          <span class="nav-label">Analytics &amp; Multi-Challenge Tracker</span>
+        </button>
       </nav>
       <div class="side-foot">
         <div class="conn">
@@ -261,6 +265,22 @@
             <div id="cluster-list" class="card-list"></div>
           </section>
         </div>
+      </div>
+
+      <div id="view-analytics" class="view" hidden>
+        <div class="analytics-toolbar">
+          <div class="stat-row" id="analytics-stats"></div>
+          <button type="button" class="btn" id="analytics-refresh">Vernieuwen</button>
+        </div>
+        <p class="hint">Fills en sluitingen blijven in <code>data/trades.json</code>. Vernieuwen leest saldo, posities en werkende orders bij Tradovate. Draait die login al in een cluster, dan wordt die sessie hergebruikt. Standaard doel is $1.250 en de verliesbuffer $1.000, tenzij je op Challenges andere regels hebt opgeslagen.</p>
+        <div id="analytics-grid" class="analytics-grid"></div>
+        <section class="panel history-panel">
+          <div class="panel-head">
+            <h2>Dagelijks historie</h2>
+            <span id="analytics-updated" class="muted"></span>
+          </div>
+          <div class="h-table" id="analytics-history"></div>
+        </section>
       </div>
     </section>
   </div>
